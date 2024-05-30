@@ -81,6 +81,8 @@ pub enum QuoteStyle {
     /// This is the default.
     #[default]
     Necessary,
+    /// Quote fields when necessary, or when the first or last character is whitespace.
+    NecessaryOrWhitespaces,
     /// Quote every field. Always.
     Always,
     /// Quote non-numeric fields.

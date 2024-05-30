@@ -400,6 +400,50 @@ pub(super) fn string_serializer<'a, Iter: Send + 'a>(
                 iter,
             })
         },
+        QuoteStyle::NecessaryOrWhitespaces => {
+            let serialize =
+                move |iter: &mut Iter, buf: &mut Vec<u8>, options: &SerializeOptions| {
+                    let Some(s) = f(iter) else {
+                        buf.extend_from_slice(options.null.as_bytes());
+                        return;
+                    };
+                    let quote_char = options.quote_char;
+                    // An empty string conflicts with null, so it is necessary to quote.
+                    if s.is_empty() {
+                        buf.extend_from_slice(&[quote_char, quote_char]);
+                        return;
+                    }
+                    let needs_quote = {
+                        if memchr3(options.separator, LF, CR, s.as_bytes()).is_some() {
+                            true
+                        } else {
+                            let mut chars = s.chars();
+                            // String length of at least one is guaranteed
+                            if chars.next().unwrap().is_whitespace() {
+                                true
+                            } else {
+                                if let Some(last) = chars.last() {
+                                    last.is_whitespace()
+                                } else {
+                                    false
+                                }
+                            }
+                        }
+                    };
+                    if needs_quote {
+                        buf.push(quote_char);
+                    }
+                    serialize_str_escaped(buf, s.as_bytes(), quote_char, needs_quote);
+                    if needs_quote {
+                        buf.push(quote_char);
+                    }
+                };
+            Box::new(StringSerializer {
+                serialize,
+                update,
+                iter,
+            })
+        },
         QuoteStyle::Never => {
             let serialize =
                 move |iter: &mut Iter, buf: &mut Vec<u8>, options: &SerializeOptions| {
